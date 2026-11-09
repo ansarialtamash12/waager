@@ -164,7 +164,7 @@ export default function Home() {
             </ul>
 
             <a className="btn" href="#learn">
-              Connect wallet
+              Connect Wallet
             </a>
           </nav>
         </div>
