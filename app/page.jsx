@@ -160,7 +160,19 @@ export default function Home() {
                     {t}
                   </a>
                 </li>
+                
               ))}
+           <li className="mobile-btn" key="mobile-connect">
+  <a
+    className="btn"
+    href="#learn"
+    onClick={() => setIsMenuOpen(false)}
+    style={{ width: "100%", textAlign: "center",color: "#fff" }}
+  >
+    Connect Wallet
+  </a>
+</li>
+
             </ul>
 
             <a className="btn" href="#learn">
