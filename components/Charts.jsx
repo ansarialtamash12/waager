@@ -1,5 +1,5 @@
 'use client'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect,useRef, useState } from 'react'
 
 const T = ({ x, y, children, a = 'middle', s = 12, c = 'var(--mut)' }) => (
   <text x={x} y={y} textAnchor={a} fontSize={s} fill={c}>{children}</text>
@@ -23,48 +23,72 @@ function makeCandles(p) {
 }
 
 export function HeroChart() {
-  const [i, setI] = useState(0)
-  const [d, setD] = useState(() => makeCandles(pairs[0]))
-  const p = pairs[i]
-  useEffect(() => { setD(makeCandles(p)) }, [i])
-  // gentle simulated tick on the last candle (sample data only)
-  useEffect(() => {
-    const id = setInterval(() => setD(old => {
-      const n = old.slice(), l = [...n[n.length - 1]], nc = l[3] + (Math.random() - 0.5) * p.v * 0.6
-      l[3] = nc; l[1] = Math.max(l[1], nc); l[2] = Math.min(l[2], nc); n[n.length - 1] = l; return n
-    }), 1500)
-    return () => clearInterval(id)
-  }, [i])
+  const container = useRef(null);
 
-  const W = 560, H = 280, pad = 24
-  const hi = Math.max(...d.map(x => x[1])), lo = Math.min(...d.map(x => x[2]))
-  const y = v => pad + (hi - v) / (hi - lo) * (H - 2 * pad), w = W / d.length
-  const ma = d.map((_, k) => k < 9 ? null : `${k * w + w / 2},${y(d.slice(k - 9, k + 1).reduce((a, b) => a + b[3], 0) / 10)}`).filter(Boolean)
-  const last = d[d.length - 1][3], ch = (last - d[0][0]) / d[0][0] * 100
+  useEffect(() => {
+    if (container.current) {
+      container.current.innerHTML = '';
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      symbols: [
+        ["EUR/USD", "FX:EURUSD|12M"],
+        ["GBP/USD", "FX:GBPUSD|12M"],
+        ["Bitcoin", "BINANCE:BTCUSDT|12M"],
+        ["Ethereum", "BINANCE:ETHUSDT|12M"],
+        ["Gold", "OANDA:XAUUSD|12M"]
+      ],
+      chartOnly: false,
+      width: "100%",
+      height: "400", 
+      locale: "en",
+      colorTheme: "light",
+      autosize: false, 
+      showVolume: true,
+      showMA: true,
+      hideDateRanges: false,
+      hideMarketStatus: false,
+      hideSymbolLogo: false,
+      scalePosition: "right",
+      scaleMode: "Normal",
+      fontFamily: "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+      fontSize: "10",
+      noTimeScale: false,
+      valuesTracking: "3",
+      changeMode: "price-only",
+      chartType: "candlesticks",
+      maLineColor: "#2962FF",
+      maLineWidth: 1,
+      maLength: 9,
+      lineType: 0,
+      dateRanges: [
+        "1w|60",
+        "1m|1D",
+        "6m|120",
+        "12m|1D",
+        "60m|1W"
+      ],
+      downColor: "#f7525f",
+      upColor: "#22ab94",
+      borderUpColor: "#22ab94",
+      borderDownColor: "#f7525f",
+      wickUpColor: "#22ab94",
+      wickDownColor: "#f7525f"
+    });
+    container.current.appendChild(script);
+  }, []);
+
   return (
-    <div className="panel" aria-label="Sample market chart">
-      <div className="float a"><span className="up">▲</span> Trend up</div>
-      <div className="tick">
-        <div><span className="small">{p.n} · sample data</span><br />
-          <strong>{last.toLocaleString('en', { minimumFractionDigits: p.d, maximumFractionDigits: p.d })}</strong>{' '}
-          <span className={ch >= 0 ? 'up' : 'dn'}>{ch >= 0 ? '+' : ''}{ch.toFixed(2)}%</span></div>
-        <div className="tabs" role="group" aria-label="Choose market">
-          {pairs.map((q, k) => <button key={q.n} aria-pressed={k === i} onClick={() => setI(k)}>{q.n}</button>)}
-        </div>
+    <div className="panel" style={{ width: '100%', height: '400px', padding: 0, overflow: 'hidden', background: '#fff' }}>
+      <div className="tradingview-widget-container" ref={container} style={{ height: '100%', width: '100%' }}>
+        <div className="tradingview-widget-container__widget" style={{ height: '100%', width: '100%' }}></div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Candlestick chart with moving average">
-        {[0, 1, 2, 3, 4].map(k => <line key={k} x1="0" x2={W} y1={pad + k * (H - 2 * pad) / 4} y2={pad + k * (H - 2 * pad) / 4} stroke="var(--line)" />)}
-        {d.map((c, k) => {
-          const x = k * w + w / 2, col = c[3] >= c[0] ? 'var(--up)' : 'var(--dn)'
-          return <g key={k}><line x1={x} x2={x} y1={y(c[1])} y2={y(c[2])} stroke={col} strokeWidth="1.5" />
-            <rect x={x - w * .32} y={Math.min(y(c[0]), y(c[3]))} width={w * .64} height={Math.max(2, Math.abs(y(c[0]) - y(c[3])))} fill={col} rx="1.5" /></g>
-        })}
-        <polyline points={ma.join(' ')} fill="none" stroke="var(--pink)" strokeWidth="2.5" strokeLinejoin="round" />
-      </svg>
-      <div className="legend"><span><i style={{ background: 'var(--up)' }} />Up</span><span><i style={{ background: 'var(--dn)' }} />Down</span><span><i style={{ background: 'var(--pink)' }} />10-period average</span></div>
-      <div className="float b">Sample data, not live prices</div>
     </div>
-  )
+  );
 }
 
 export function Patterns() {
@@ -129,21 +153,55 @@ export function Sessions() {
     </svg>)
 }
 
-// Sample currency strength heatmap (illustrative numbers)
-export function Heatmap() {
-  const cur = ['USD', 'EUR', 'GBP', 'JPY', 'AUD']
-  const v = [[0, .42, .31, -.18, .22], [-.42, 0, -.12, -.55, -.2], [-.31, .12, 0, -.38, -.1], [.18, .55, .38, 0, .3], [-.22, .2, .1, -.3, 0]]
+// Sample currency strength
+const TV_SRC = 'https://widgets.tradingview-widget.com/w/en/tv-forex-table.js'
+
+export function LiveForexTable() {
+  const ref = useRef(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const existing = document.querySelector(`script[src="${TV_SRC}"]`)
+    if (existing) {
+      if (customElements.get('tv-forex-table')) setReady(true)
+      else existing.addEventListener('load', () => setReady(true), { once: true })
+      return
+    }
+    const s = document.createElement('script')
+    s.src = TV_SRC
+    s.type = 'module'
+    s.async = true
+    s.addEventListener('load', () => setReady(true))
+    document.head.appendChild(s)
+  }, [])
+
+  useEffect(() => {
+    if (!ready || !ref.current) return
+    ref.current.innerHTML = ''
+    const el = document.createElement('tv-forex-table')
+    el.setAttribute('theme', 'light')
+    el.setAttribute('width', '100%')
+    el.setAttribute('height', '400') 
+    el.setAttribute('autosize', 'true')
+    el.style.display = 'block'
+    el.style.width = '100%'
+    ref.current.appendChild(el)
+  }, [ready])
+
   return (
-    <div className="heat" role="table" aria-label="Sample currency change matrix">
-      <div className="h" />{cur.map(c => <div className="h" key={c}>{c}</div>)}
-      {cur.map((r, i) => (<Fragment key={r}>
-        <div className="h">{r}</div>
-        {v[i].map((x, j) => <div key={j} style={{ background: x === 0 ? 'var(--bg2)' : x > 0 ? `rgba(18,163,107,${.15 + Math.abs(x)})` : `rgba(229,72,77,${.15 + Math.abs(x)})`, color: x === 0 ? 'var(--mut)' : 'var(--ink)' }}>{x === 0 ? '–' : (x > 0 ? '+' : '') + x.toFixed(2) + '%'}</div>)}
-      </Fragment>))}
-    </div>)
+    <div style={{ width: '100%', height: '340px', overflow: 'hidden', position: 'relative' }}>
+      
+      <div 
+        ref={ref} 
+        style={{ width: '100%', height: '400px', position: 'absolute', top: 0, left: 0 }} 
+      />
+      
+    </div>
+  )
 }
 
-// Share of daily FX turnover by currency, approx. BIS 2022 (percent of 200% total)
+
+
 export function CurrencyBars() {
   const d = [['USD', 88], ['EUR', 31], ['JPY', 17], ['GBP', 13], ['Other', 51]]
   return (
